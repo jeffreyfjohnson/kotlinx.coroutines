@@ -1,6 +1,6 @@
 package benchmarks
 
-import kotlinx.coroutines.experimental.launch
+import kotlinx.coroutines.launch
 import org.openjdk.jmh.annotations.*
 import java.util.concurrent.CyclicBarrier
 import java.util.concurrent.TimeUnit

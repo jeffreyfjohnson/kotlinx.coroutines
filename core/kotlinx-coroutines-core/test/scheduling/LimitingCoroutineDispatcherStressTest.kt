@@ -1,9 +1,9 @@
-package kotlinx.coroutines.experimental.scheduling
+package kotlinx.coroutines.scheduling
 
 import kotlinx.atomicfu.*
-import kotlinx.coroutines.experimental.*
+import kotlinx.coroutines.*
 import org.junit.Test
-import kotlin.coroutines.experimental.*
+import kotlin.coroutines.*
 import kotlin.test.*
 
 class LimitingCoroutineDispatcherStressTest : SchedulerTestBase() {

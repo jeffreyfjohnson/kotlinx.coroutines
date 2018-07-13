@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package kotlinx.coroutines.experimental
+package kotlinx.coroutines
 
 import kotlin.test.*
 

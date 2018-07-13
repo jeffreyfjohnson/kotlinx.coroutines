@@ -1,5 +1,5 @@
-import kotlinx.coroutines.experimental.*
-import kotlinx.coroutines.experimental.exceptions.*
+import kotlinx.coroutines.*
+import kotlinx.coroutines.exceptions.*
 import java.io.*
 import kotlin.test.*
 
