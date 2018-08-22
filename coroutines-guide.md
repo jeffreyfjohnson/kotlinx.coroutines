@@ -67,6 +67,7 @@ You need to add a dependency on `kotlinx-coroutines-core` module as explained
   * [Parental responsibilities](#parental-responsibilities)
   * [Naming coroutines for debugging](#naming-coroutines-for-debugging)
   * [Cancellation via explicit job](#cancellation-via-explicit-job)
+* [Thread-local data](#thread-local-data)
 * [Channels](#channels)
   * [Channel basics](#channel-basics)
   * [Closing and iteration over channels](#closing-and-iteration-over-channels)
@@ -1260,6 +1261,60 @@ application is to create a parent job object when activity is created, use it fo
 and cancel it when activity is destroyed. We cannot `join` them in the case of Android lifecycle, 
 since it is synchronous, but this joining ability is useful when building backend services to ensure bounded 
 resource usage.
+
+## Thread-local data
+Sometimes it's very convenient to have an ability to pass some thread-local data, but for coroutines, which 
+are not bound to any particular thread, it's hard to achieve it manually without writing a lot of boilerplate.
+
+For [`ThreadLocal`](https://docs.oracle.com/javase/8/docs/api/java/lang/ThreadLocal.html), 
+[asContextElement] is here for the rescue. It creates is an additional context element, 
+which remembers given `ThreadLocal` and restores it every time coroutine switches its context.
+
+It's easy to demonstrate it in action:
+
+<!--- INCLUDE
+import kotlin.coroutines.experimental.*
+-->
+```kotlin
+val threadLocal = ThreadLocal<String?>()
+
+fun main(args: Array<String>) = runBlocking<Unit> {
+    threadLocal.set("main")
+    println("Pre-main, current thread: ${Thread.currentThread()}, thread local value: '${threadLocal.get()}'")
+
+    val job = launch(CommonPool + threadLocal.asContextElement(initialValue = "launch"), start = CoroutineStart.UNDISPATCHED) {
+        println("Launch start, current thread: ${Thread.currentThread()}, thread local value: '${threadLocal.get()}'")
+        yield()
+        println("After yield, current thread: ${Thread.currentThread()}, thread local value: '${threadLocal.get()}'")
+    }
+
+    job.join()
+    println("Post-main, current thread: ${Thread.currentThread()}, thread local value: '${threadLocal.get()}'")
+}
+```
+
+> You can get full code [here](core/kotlinx-coroutines-core/test/guide/example-context-11.kt)
+
+The output of this example is:
+
+```text
+Pre-main, current thread: Thread[main @coroutine#1,5,main], thread local value: 'main'
+Launch start, current thread: Thread[main @coroutine#2,5,main], thread local value: 'launch'
+After yield, current thread: Thread[ForkJoinPool.commonPool-worker-1 @coroutine#2,5,main], thread local value: 'launch'
+Post-main, current thread: Thread[main @coroutine#1,5,main], thread local value: 'main'
+```
+
+
+Note that thread-local is restored properly, no matter on what thread coroutine is executed. 
+`ThreadLocal` has first-class support and can be used with any primitive `kotlinx.corotuines` provides.
+It has the only limitation: if thread-local is mutated, a new value is not propagated to the coroutine caller 
+(as context element cannot track all `ThreadLocal` object accesses), but is properly propagated to newly launched coroutines.
+To workaround it, value can be stored in a mutable box like `class Counter(var i: Int)`
+
+For advanced usage, for example for integration with logging MDC, transactional contexts or any other libraries
+which use thread-locals for passing data, [ThreadContextElement] interface should be implemented. 
+
+<!--- TEST FLEXIBLE_THREAD -->
 
 ## Channels
 
@@ -2490,6 +2545,8 @@ Channel was closed
 [newCoroutineContext]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.experimental/new-coroutine-context.html
 [CoroutineName]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.experimental/-coroutine-name/index.html
 [Job()]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.experimental/-job.html
+[asContextElement]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.experimental/java.lang.-thread-local/as-context-element.html
+[ThreadContextElement]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.experimental/-thread-context-element/index.html
 [kotlin.coroutines.experimental.CoroutineContext.cancelChildren]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.experimental/kotlin.coroutines.experimental.-coroutine-context/cancel-children.html
 [CompletableDeferred]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.experimental/-completable-deferred/index.html
 [Deferred.onAwait]: https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.experimental/-deferred/on-await.html
